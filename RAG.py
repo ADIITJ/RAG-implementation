@@ -4,6 +4,7 @@ import nltk
 import string
 from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
+from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
