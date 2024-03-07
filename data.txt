@@ -1,0 +1,322 @@
+Write
+
+Sign in
+Retrieval Augmented Generation(RAG) using LlamaIndex and Mistral— 7B
+Netra Prasad Neupane
+
+Netra Prasad Neupane
+·
+
+Follow
+8 min read
+·
+Jan 30, 2024
+
+Retrieval Augmented Generation(RAG) is the technique to query over both structured and unstructured documents using the large language model(LLM). Mainly, it consists of two phases: indexing and retrieval & generation. In the indexing phase, we split the document into text chunks and the embedding of the text chunks is stored in the vector database. In the Retrieval and generation phase contexts which are relevant to the user query have been extracted from the vector database and we prompt LLM in such a way that it will respond to the user query by evaluating the retrieved contexts. I have already written a blog post on Retrieval Augmented Generation (RAG) — Concept, Workings & Evaluation. Please read this blog post before starting the implementation of the RAG system.
+fig: Retrieval Augmented Generation(RAG) Sequence Diagram (source: https://developer.nvidia.com/)
+
+Let’s deep dive into implementing RAG using Mistral-7B and LlamaIndex. Here, you can use other open-source LLMs as well such as Llama2, Mindy-7B, Rabbit-7B, Yi-34B, Marcoroni-70B, MoMo-70B etc. But I am sticking with Mistral-7Bthis time because it is easy to use and is a very popular model. Here, I am using a 4-bit quantized version of Mistral-7B called mistral-7b-instruct-v0.2.Q4_K_M.gguf . The 4-bit quantization technique reduces memory usage in neural networks by compressing weights and activations from 32-bit floating point numbers to 4-bit integers while maintaining a range from -8 to +7.
+
+Moreover, we are also using the LlamaIndex framework. LlamaIndex is a very popular data framework for LLM-based applications to ingest, structure, and access private or domain-specific data. It provides a simple interface for querying LLMs and retrieving relevant pieces of information. LlamaIndex is more efficient than Langchain when we need to process large amounts of data.
+
+Let’s deep dive into RAG implementation using the sentence-window retrieval technique. In sentence-window retrieval, we fetch a single sentence during retrieval and return a window of text around the sentence.
+
+Now, it’s time to install the necessary dependencies to run the RAG pipeline. Here, we are using pypdf library to read the PDF documents and sentence-transformers library to load the embedding generator and Reranker from hugging face:
+
+!pip install -q pypdf
+!pip install torch
+!pip install -q transformers
+!pip -q install sentence-transformers
+!pip install -q llama-index
+
+Let’s configure the GPU for llama-cpp-python. llama-cpp-python is a Python binding for llama.cpp. It supports inference for many LLM models, which can be accessed on Hugging Face
+
+!CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install  llama-cpp-python --no-cache-dir
+
+Let’s load our large language model. I have already mentioned that we are going to use a 4-bit quantized LLM for this demo. It is recommended to use a system having at least 12 GB GPU and 16 GB RAM for this application otherwise your system may not work as expected. Here, we loaded a quantized version of Mistral-7B from huggingface using LlamaCPP method provided by llama_index.
+
+import torch
+
+from llama_index.llms import LlamaCPP
+from llama_index.llms.llama_utils import messages_to_prompt, completion_to_prompt
+llm = LlamaCPP(
+    # You can pass in the URL to a GGML model to download it automatically
+    # model_url='https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf',
+    model_url='https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf',
+    # optionally, you can set the path to a pre-downloaded model instead of model_url
+    model_path=None,
+    temperature=0.1,
+    max_new_tokens=256,
+    # llama2 has a context window of 4096 tokens, but we set it lower to allow for some wiggle room
+    context_window=4096,
+    # kwargs to pass to __call__()
+    generate_kwargs={},
+    # kwargs to pass to __init__()
+    # set to at least 1 to use GPU
+    model_kwargs={"n_gpu_layers": -1},
+    # transform inputs into Llama2 format
+    messages_to_prompt=messages_to_prompt,
+    completion_to_prompt=completion_to_prompt,
+    verbose=True,
+)
+
+Now, it’s time to load the document using SimpleDiretoryReader from llama_index framework. Here, we concatenate each page of documents because SimpleDirectoryReader split the document into pages and load each page as a document. Here, I am using a research paper on LLM: A Survey of Large Language Models. You can download the paper from here. This paper provides an up-to-date review of the literature on LLMs.
+fig: Research Paper on A Survey of Large Language Models
+
+Let’s read the document from the directory, concatenate each page of the document into a single object provided by the Llama_index Document class. The type of document object is llama_index.schema.Document .
+
+from llama_index import SimpleDirectoryReader
+from llama_index import Document
+
+documents = SimpleDirectoryReader(
+    input_files = ["./documents/survey_on_llms.pdf"]
+).load_data()
+
+documents = Document(text = "\n\n".join([doc.text for doc in documents]))
+
+Great, we have loaded the model and read the document. Now, let’s write the function to create the index from the document. In this step, we split the texts into sentence chunks and stored the embedding of the chunks to the vector index. Here, we are using huggingface bge-small-en-v1.5 model for the embedding generation and we store the embeddings in the VectorStoreIndex provided by LlamaIndex. Here, we also consider the few sentences left and right sides of the given chunk during indexing, which is determined by sentence_window_size parameter.
+
+import os
+from llama_index.node_parser import SentenceWindowNodeParser
+from llama_index import VectorStoreIndex, ServiceContext
+def get_build_index(documents,llm,embed_model="local:BAAI/bge-small-en-v1.5",sentence_window_size=3,save_dir="./vector_store/index"):
+  
+  node_parser = SentenceWindowNodeParser(
+      window_size = sentence_window_size,
+      window_metadata_key = "window",
+      original_text_metadata_key = "original_text"
+  )
+
+  sentence_context = ServiceContext.from_defaults(
+      llm = llm,
+      embed_model= embed_model,
+      node_parser = node_parser,
+  )
+
+  if not os.path.exists(save_dir):
+        # create and load the index
+        index = VectorStoreIndex.from_documents(
+            [documents], service_context=sentence_context
+        )
+        index.storage_context.persist(persist_dir=save_dir)
+  else:
+      # load the existing index
+      index = load_index_from_storage(
+          StorageContext.from_defaults(persist_dir=save_dir),
+          service_context=sentence_context,
+      )
+
+  return index
+
+We have defined the function above to create the index store for the document. Now, let’s call the function to create a vector index:
+
+# get the vector index
+vector_index = get_build_index(documents=documents, llm=llm, embed_model="local:BAAI/bge-small-en-v1.5", sentence_window_size=3, save_dir="./vector_store/index")
+
+Now, it’s time to write a function that will create the query engine for the newly created vector index. We can query our document using that query engine.
+
+def get_query_engine(sentence_index, similarity_top_k=6, rerank_top_n=2):
+  postproc = MetadataReplacementPostProcessor(target_metadata_key="window")
+  rerank = SentenceTransformerRerank(
+      top_n=rerank_top_n, model="BAAI/bge-reranker-base"
+  )
+  engine = sentence_index.as_query_engine(
+        similarity_top_k=similarity_top_k, node_postprocessors=[postproc, rerank]
+  )
+
+  return engine
+
+Ok, we have defined the function to create the query engine. Let’s create the query engine by calling the get_query_engine() function recently defined.
+
+query_engine = get_query_engine(sentence_index=vector_index, similarity_top_k=6, rerank_top_n=2)
+
+Here, we have created the query engine as well. So, our RAG pipeline is completely ready and the query engine is now ready to respond to our query. Let’s do queries on the document:
+
+while True:
+  query=input()
+  response = query_engine.query(query)
+  display_response(response)
+  print("\n")
+
+The above code snippets help to query documents and run forever. Please kill the runtime once you complete the generation. I have tested our RAG pipeline in different queries, to evaluate the performance. I have attached queries and corresponding response from the system below:
+
+Query 1: What is a large language model?
+
+    Response: A large language model (LLM) refers to Transformer language models that contain hundreds of billions or more parameters, trained on massive text data. These models exhibit strong capacities to understand natural language and solve complex tasks through text generation. They have been largely advanced by both academia and industry, with notable examples being GPT-3, PaLM, Galactica, and LLaMA. LLMs have shown significant performance improvements over smaller models and exhibit special abilities such as in-context learning. The term “large language model” was coined to distinguish these models from smaller pre-trained language models (PLMs). Recent advancements in LLMs have had a significant impact on the AI community, leading to innovations like ChatGPT, a powerful AI chatbot developed based on LLMs.
+
+Query 2: What are currently available open-source llm’s?
+
+    Response: Based on the context provided, there are several publicly available large language models (LLMs) with well-trained model checkpoints or APIs that researchers and developers can use for incremental development or experimental study. These include LLaVA [149], MiniGPT-4 [150], InstructBLIP [151], PandaGPT [152], and the APIs for the GPT-series models [46, 55, 66, 105]. These resources are categorized into two scale levels: tens of billions of parameters and hundreds of billions of parameters. The Vicuna model is particularly preferred in multimodal language models, leading to the emergence of these popular models.
+
+Query 3: How to evaluate the performance of llm’s?
+
+    Response: According to the context provided, there are three main approaches to evaluating Language Model Large-scales (LLMs): benchmark-based approach, human-based approach, and model-based approach. The choice of evaluation approach depends on the type of LLM being assessed, which can be categorized into base LLMs, fine-tuned LLMs, or specialized LLMs. Base LLMs are evaluated based on their basic abilities such as complex reasoning and knowledge utilization. Fine-tuned LLMs and specialized LLMs, on the other hand, may have different purposes and thus require different evaluation methods to assess their performance in specific tasks or domains. The context also mentions the existence of benchmarks and leaderboards for comparing the performance of various LLMs.
+
+Query 4: What is a multimodel large language model?
+
+    Response: A multimomodal large language model (MLLM) is a type of large language model that can process and integrate information from various modalities such as text and images, with the output being text responses. It is an extension of traditional large language models, which primarily focus on text data, to include non-textual modalities like vision. The input for MLLMs is specified as text-image pairs, and the output is text responses.
+
+Query 5: Is llama2 an open-source llm?
+
+    Response: Yes, LLaMA2 is an open-source large language model (LLM). The context information indicates that it is developed based on the deep learning framework MindSpore and has attracted significant attention from the research community with many efforts being devoted to fine-tuning or continually pre-training its different model versions.
+
+Query 6: Is Mistral-7B an open-source llm?
+
+    Response: Based on the provided context, there is no mention or indication that Mistral-7B is an LLM (Language Model) or if it is open-source.
+
+As we can see, our query engine is performing great. It answers almost every answer with high precision. In query 6, It couldn’t get any information about the Mistral-7B model on the document and hence it responded accordingly. So, It is doing great. It answers all my queries. Now, it’s your turn to query and get answers from your documents. Please, don’t forget to provide feedback in the comments on how it works in your documents. You can find the above code snippets here.
+
+I hope that the above blog helps you to implement a complete RAG pipeline using open-source llms like Mistral-7B. I hope it will help you to query your documents and find the relevant answers from documents. If you have any queries I am happy to answer them if possible. If you liked it, then please don’t forget to clap and share it with your friends. See you in the next part: Retrieval Augmented Generation (RAG) using LlamaIndex and ChatGPT…
+
+References:
+
+    https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/blob/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+    https://docs.llamaindex.ai/en/latest/examples/llm/llama_2_llama_cpp.html
+    https://www.deeplearning.ai/short-courses/building-evaluating-advanced-rag/
+
+Retrieval Augmented
+Llm
+Llamaindex
+Mistral
+Genai
+
+Netra Prasad Neupane
+Written by Netra Prasad Neupane
+60 Followers
+
+Machine Learning Engineer with expertise in Computer Vision, Deep Learning, NLP and Generative AI. https://www.linkedin.com/in/netraneupane/
+More from Netra Prasad Neupane
+How to remove CUDA completely from Linux?
+Netra Prasad Neupane
+
+Netra Prasad Neupane
+How to remove CUDA completely from Linux?
+If you want to reinstall CUDA or replace CUDA with another version then you are in the right place. In this blog, I will describe how to…
+3 min read·May 25, 2023
+
+How to Install Libraries permanently in Google Colab?
+Netra Prasad Neupane
+
+Netra Prasad Neupane
+How to Install Libraries permanently in Google Colab?
+Most coders or developers use Google Colab for executing their prototypes very fast as it provides you access to faster GPUs like the T4…
+4 min read·Jan 18, 2023
+
+6
+Retrieval Augmented Generation (RAG) — Concept, Workings & Evaluation
+Netra Prasad Neupane
+
+Netra Prasad Neupane
+Retrieval Augmented Generation (RAG) — Concept, Workings & Evaluation
+The large language model (LLM) became a buzzword in 2023. After the massive success of GPT-3, more than one LLM has been released each…
+5 min read·Dec 21, 2023
+
+2
+Extracting and Highlighting key-value pairs in pdf Documents using Python
+Netra Prasad Neupane
+
+Netra Prasad Neupane
+Extracting and Highlighting key-value pairs in pdf Documents using Python
+Information extraction is crucial process of extracting structured information from unstructured/semi-structured textual documents. Due to…
+6 min read·Sep 10, 2023
+
+See all from Netra Prasad Neupane
+Recommended from Medium
+Retrieval augmented generation (RAG) workflow from user query through retrieval with a vector database to prompt stuffing and finally generating a response.
+Leonie Monigatti
+
+Leonie Monigatti
+
+in
+
+Towards Data Science
+Retrieval-Augmented Generation (RAG): From Theory to LangChain Implementation
+From the theory of the original academic paper to its Python implementation with OpenAI, Weaviate, and LangChain
+7 min read·Nov 14, 2023
+
+10
+Implementing RAG with Langchain and Hugging Face
+Akriti Upadhyay
+
+Akriti Upadhyay
+
+in
+
+Accredian
+Implementing RAG with Langchain and Hugging Face
+Using Open Source for Information Retrieval
+9 min read·Oct 16, 2023
+
+12
+Lists
+Natural Language Processing
+1254 stories·740 saves
+ChatGPT prompts
+45 stories·1208 saves
+Retrieval-Augmented Generation (RAG) using Llama 2,ChromaDB , Together AI for Retrieval QA
+Rajesh K
+
+Rajesh K
+
+in
+
+GoPenAI
+Retrieval-Augmented Generation (RAG) using Llama 2,ChromaDB , Together AI for Retrieval QA
+Commonly, Large Language Models (LLMs) such as Llama2 Claude are trained on diverse datasets, making them less adept in specialized domain…
+6 min read·Nov 26, 2023
+
+Implementing RAG using Langchain Ollama and Chainlit on Windows using WSL
+Plaban Nayak
+
+Plaban Nayak
+
+in
+
+AI Planet
+Implementing RAG using Langchain Ollama and Chainlit on Windows using WSL
+What is Ollama ?
+15 min read·Nov 11, 2023
+
+6
+Build your own RAG and run it locally: Langchain + Ollama + Streamlit
+Duy Huynh
+
+Duy Huynh
+Build your own RAG and run it locally: Langchain + Ollama + Streamlit
+With the rise of Large Language Models and its impressive capabilities, many fancy applications are being built on top of giant LLM…
+6 min read·Dec 5, 2023
+
+4
+Boosting RAG: Picking the Best Embedding & Reranker models
+Ravi Theja
+
+Ravi Theja
+
+in
+
+LlamaIndex Blog
+Boosting RAG: Picking the Best Embedding & Reranker models
+Evaluate embeddings and rerankers on your dataset to find the best retrieval mix for RAG pipeline.
+7 min read·Nov 3, 2023
+
+7
+See more recommendations
+
+Help
+
+Status
+
+About
+
+Careers
+
+Blog
+
+Privacy
+
+Terms
+
+Text to speech
+
+Teams
+
