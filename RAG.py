@@ -14,12 +14,12 @@ nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 
-uploaded = files.upload()
+uploaded = ['data.txt','data2.txt']
 
 sentences = []
 word_tokens = []
 
-for filename in uploaded.keys():
+for filename in uploaded:
     print(f"Uploaded file: {filename}")
     with open(filename, 'r', errors='ignore') as file:
         raw = file.read().lower()
