@@ -12,6 +12,7 @@ nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 
+
 uploaded = ['data.txt']
 
 sentences = []
@@ -35,6 +36,8 @@ tfidf_matrix = TfidfVec.fit_transform(sentences)
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+query_text = "what is RAG"
+query_vector = TfidfVec.transform([query_text])
 def response(user_response):
     robo_response = ''
     user_response = user_response.lower()
@@ -83,4 +86,6 @@ distances = []
 for cluster_id, cluster in clusters.items():
     distance = cosine_similarity(query_vector, cluster["vector"])[0][0]
     distances.append((distance, cluster_id))
-distances.sort(key=lambda x: x[0
+distances.sort(key=lambda x: x[0], reverse=True)
+
+print(response(query_text))
