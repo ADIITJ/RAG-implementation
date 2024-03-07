@@ -5,13 +5,19 @@ from nltk.corpus import stopwords
 from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+TfidfVec = TfidfVectorizer(stop_words='english')
+lemmer = nltk.stem.WordNetLemmatizer()
 # Download NLTK resources
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 
+
+query_text = "what is RAG"
+query_vector = TfidfVec.transform([query_text])
 
 uploaded = ['data.txt']
 
@@ -25,19 +31,15 @@ for filename in uploaded:
         sentences += sent_tokenize(raw)
         word_tokens += nltk.word_tokenize(raw)
 
-lemmer = nltk.stem.WordNetLemmatizer()
 def LemNormalize(text):
     tokens = nltk.word_tokenize(text.lower().translate(dict((ord(punct), None) for punct in string.punctuation)))
     return [lemmer.lemmatize(token) for token in tokens]
 
-TfidfVec = TfidfVectorizer(stop_words='english')
+
 tfidf_matrix = TfidfVec.fit_transform(sentences)
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
-query_text = "what is RAG"
-query_vector = TfidfVec.transform([query_text])
+
 def response(user_response):
     robo_response = ''
     user_response = user_response.lower()
