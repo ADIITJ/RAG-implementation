@@ -41,13 +41,13 @@ chunks = break_into_chunks(sentences)
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(chunks)
 
-# Cluster sentences
-num_clusters = len(sentences) // 5  # Adjust as needed
+num_clusters = len(chunks) // 5  # Adjust as needed
 kmeans = KMeans(n_clusters=num_clusters)
 kmeans.fit(tfidf_matrix)
 cluster_labels = kmeans.labels_
 
 clusters = {}
+
 
 for i in range(len(cluster_labels)):
     cluster_id = cluster_labels[i]
