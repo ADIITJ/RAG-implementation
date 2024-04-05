@@ -13,7 +13,9 @@ nltk.download('omw-1.4')
 
 uploaded = ['data.txt']
 
-sentences = []
+def preprocess_text(text):
+    text = text.lower()
+    return text
 
 for filename in uploaded:
     print(f"Uploaded file: {filename}")
