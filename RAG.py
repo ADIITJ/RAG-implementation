@@ -26,6 +26,13 @@ def break_into_chunks(sentences):
         chunk = ' '.join(sentences[chunk_start:chunk_end])
         chunks.append(chunk)
     return chunks
+    
+sentences = []
+for filename in uploaded:
+    print(f"Uploaded file: {filename}")
+    with open(filename, 'r', errors='ignore') as file:
+        raw_text = file.read()
+        sentences += sent_tokenize(raw_text)
 
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(sentences)
