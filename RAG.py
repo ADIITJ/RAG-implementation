@@ -56,7 +56,6 @@ for i in range(len(cluster_labels)):
     else:
         clusters[cluster_id]["sentences"].append(sentences[i])
         clusters[cluster_id]["vector"] += tfidf_matrix[i]
-
 # Calculate centroid vectors for each cluster
 for cluster_id, cluster in clusters.items():
     cluster["vector"] /= len(cluster["sentences"])
