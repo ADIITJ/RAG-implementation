@@ -79,10 +79,18 @@ def find_similar_sentences(query_text):
     similar_sentences = [chunks[index] for index in top_chunk_indices]
     return similar_sentences
 
+def convert_data_to_list(data):
+    unique_strings = set()
+    for sublist in data:
+        for string in sublist:
+            unique_strings.add(string)
+    return list(unique_strings)
+
 
 def response(query_text):
     query_text = preprocess_text(query_text)
     similar_sentences = find_similar_sentences(query_text)
+    similar_sentences = convert_data_to_list()
     return similar_sentences
 
 query_text = ""
