@@ -2,6 +2,7 @@ import nltk
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 # Download NLTK resources
 nltk.download('punkt')
@@ -54,14 +55,14 @@ print(len(sentences))
 chunk_centroids = []
 for chunk in chunks:
     chunk_vector = tfidf_vectorizer.transform([chunk])
-    chunk_centroid = chunk_vector.mean(axis=0)
+    chunk_centroid = np.asarray(chunk_vector.mean(axis=0)).reshape(-1)
     chunk_centroids.append(chunk_centroid)
 
 def find_similar_sentences(query_text):
     query_vector = tfidf_vectorizer.transform([query_text])
     distances = []
     for centroid in chunk_centroids:
-        distance = cosine_similarity(query_vector, centroid)[0][0]
+        distance = cosine_similarity(query_vector, centroid.reshape(1, -1))[0][0]
         distances.append((distance, centroid))
     distances.sort(key=lambda x: x[0], reverse=True)
     top_chunk_indices = [index for index, _ in distances[:3]]
