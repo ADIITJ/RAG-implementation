@@ -23,10 +23,11 @@ def break_into_chunks(sentences):
     for i in range(len(sentences)):
         chunk_start = max(0, i - 2)
         chunk_end = min(len(sentences), i + 3)
-        for sen in sentences[chunk_start:chunk_end]:
-            chunks.append(sen)
-        
+        base_sentence = sentences[i]
+        similar_sentences = find_similar_sentences(base_sentence, sentences[chunk_start:chunk_end])
+        chunks.extend(similar_sentences)
     return chunks
+
     
 sentences = []
 for filename in uploaded:
