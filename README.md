@@ -1,4 +1,4 @@
-### RAG Implementation
+## RAG Implementation
 
 This repository contains an implementation of the Retrieval-Augmented Generation (RAG) model, which is used for question answering and generation tasks. The RAG model combines the power of retrieval-based and generation-based approaches to provide accurate and contextually relevant responses.
 
