@@ -37,7 +37,8 @@ sentences = [preprocess_text(sentence) for sentence in sentences]
 
 # Break sentences into chunks
 chunks = break_into_chunks(sentences)
-
+print(len(chunks))
+print(len(sentences))
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(chunks)
 
@@ -85,6 +86,6 @@ while query_text.lower() != "bye":
     query_text = input("You: ")
     similar_sentences = response(query_text)
     print("Bot: Top similar sentences found:")
-    for sentence in similar_sentences:
-        print("-", sentence)
+    #for sentence in similar_sentences:
+    #    print("-", sentence)
 
