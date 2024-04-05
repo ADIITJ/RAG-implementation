@@ -61,13 +61,14 @@ for chunk in chunks:
 def find_similar_sentences(query_text):
     query_vector = tfidf_vectorizer.transform([query_text])
     distances = []
-    for centroid in chunk_centroids:
+    for centroid_index, centroid in enumerate(chunk_centroids):
         distance = cosine_similarity(query_vector, centroid.reshape(1, -1))[0][0]
-        distances.append((distance, centroid))
+        distances.append((distance, centroid_index))
     distances.sort(key=lambda x: x[0], reverse=True)
-    top_chunk_indices = [index for index, _ in distances[:3]]
+    top_chunk_indices = [int(index) for index, _ in distances[:3]]  # Convert indices to integers
     similar_sentences = [chunks[index] for index in top_chunk_indices]
     return similar_sentences
+
 
 def response(query_text):
     query_text = preprocess_text(query_text)
