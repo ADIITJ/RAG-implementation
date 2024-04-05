@@ -33,6 +33,10 @@ for filename in uploaded:
     with open(filename, 'r', errors='ignore') as file:
         raw_text = file.read()
         sentences += sent_tokenize(raw_text)
+sentences = [preprocess_text(sentence) for sentence in sentences]
+
+# Break sentences into chunks
+chunks = break_into_chunks(sentences)
 
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(sentences)
