@@ -28,12 +28,12 @@ def preprocess_text(text):
 def break_into_chunks(sentences):
     chunks = []
     for i in range(len(sentences)):
-        chunk_start = max(0, i - 2)
-        chunk_end = min(len(sentences), i + 3)
+        chunk_start = max(0, i - 3)
+        chunk_end = min(len(sentences), i + 4)
         base_sentence = sentences[i]
         similar_sentences = find_similar_sentences(base_sentence, sentences[chunk_start:chunk_end])
         chunks.append(similar_sentences)
-        i=i+2
+        i=i+4
     return chunks
 
 def find_similar_sentences(base_sentence, candidate_sentences):
@@ -90,7 +90,7 @@ def convert_data_to_list(data):
 def response(query_text):
     query_text = preprocess_text(query_text)
     similar_sentences = find_similar_sentences(query_text)
-    similar_sentences = convert_data_to_list()
+    similar_sentences = convert_data_to_list(similar_sentences)
     return similar_sentences
 
 query_text = ""
