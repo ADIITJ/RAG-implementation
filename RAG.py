@@ -97,6 +97,7 @@ query_text = ""
 while query_text.lower() != "bye":
     query_text = input("You: ")
     similar_sentences = response(query_text)
-    print("Bot: Top similar sentences found:")
+    print("Bot: RAG prompt-")
+    print(f'Answer the question: {query_text} based on context:')
     for sentence in similar_sentences:
-        print("-", sentence)
+        print(sentence)
