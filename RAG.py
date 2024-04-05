@@ -80,5 +80,11 @@ def response(query_text):
     return results
 
 
-
+query_text = ""
+while query_text.lower() != "bye":
+    query_text = input("You: ")
+    similar_sentences = response(query_text)
+    print("Bot: Top similar sentences found:")
+    for sentence in similar_sentences:
+        print("-", sentence)
 
