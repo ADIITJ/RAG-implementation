@@ -70,8 +70,15 @@ def find_similar_sentences(query_text, cluster):
         distances.append((distance, sentence))
     distances.sort(key=lambda x: x[0], reverse=True)
     return [sentence for _, sentence in distances[:3]]  # Return top 3 similar sentences
+    
+def response(query_text):
+    query_text = preprocess_text(query_text)
+    results = []
+    for cluster_id, cluster in clusters.items():
+        similar_sentences = find_similar_sentences(query_text, cluster)
+        results.extend(similar_sentences)
+    return results
 
-query_text = ""
-while query_text.lower() != "bye":
-    query_text = input("You: ")
-    print("Bot:", response(query_text))
+
+
+
