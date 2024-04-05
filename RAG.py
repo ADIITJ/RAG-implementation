@@ -1,6 +1,5 @@
 import nltk
 from nltk.tokenize import sent_tokenize
-from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -13,17 +12,17 @@ def preprocess_text(text):
     text = str(text).lower()
     return text
 
-def break_into_chunks(sentences, tfidf_vectorizer):
+def break_into_chunks(sentences):
     chunks = []
     for i in range(len(sentences)):
         chunk_start = max(0, i - 2)
         chunk_end = min(len(sentences), i + 3)
         base_sentence = sentences[i]
-        similar_sentences = find_similar_sentences(tfidf_vectorizer, base_sentence, sentences[chunk_start:chunk_end])
+        similar_sentences = find_similar_sentences(base_sentence, sentences[chunk_start:chunk_end])
         chunks.extend(similar_sentences)
     return chunks
 
-def find_similar_sentences(tfidf_vectorizer, base_sentence, candidate_sentences):
+def find_similar_sentences(base_sentence, candidate_sentences):
     query_vector = tfidf_vectorizer.transform([base_sentence])
     distances = []
     for sentence in candidate_sentences:
@@ -43,50 +42,36 @@ for filename in uploaded:
 sentences = [preprocess_text(sentence) for sentence in sentences]
 
 # Create TfidfVectorizer
-TfidfVec = TfidfVectorizer(stop_words='english')
-tfidf_matrix = TfidfVec.fit_transform(sentences)
+tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf_vectorizer.fit_transform(sentences)
 
 # Break sentences into chunks
-chunks = break_into_chunks(sentences, TfidfVec)
+chunks = break_into_chunks(sentences)
 print(len(chunks))
 print(len(sentences))
 
-num_clusters = len(chunks)//3  # Adjust as needed
-kmeans = KMeans(n_clusters=num_clusters)
-kmeans.fit(tfidf_matrix)
-cluster_labels = kmeans.labels_
+# Calculate centroid vectors for each chunk
+chunk_centroids = []
+for chunk in chunks:
+    chunk_vector = tfidf_vectorizer.transform([chunk])
+    chunk_centroid = chunk_vector.mean(axis=0)
+    chunk_centroids.append(chunk_centroid)
 
-clusters = {}
-
-for i in range(len(cluster_labels)):
-    cluster_id = cluster_labels[i]
-    if cluster_id not in clusters:
-        clusters[cluster_id] = {"sentences": [sentences[i]], "vector": tfidf_matrix[i]}
-    else:
-        clusters[cluster_id]["sentences"].append(sentences[i])
-        clusters[cluster_id]["vector"] += tfidf_matrix[i]
-
-# Calculate centroid vectors for each cluster
-for cluster_id, cluster in clusters.items():
-    cluster["vector"] /= len(cluster["sentences"])
-
-def find_similar_sentences(query_text, cluster):
-    query_vector = TfidfVec.transform([query_text])
+def find_similar_sentences(query_text):
+    query_vector = tfidf_vectorizer.transform([query_text])
     distances = []
-    for sentence in cluster["sentences"]:
-        sentence_vector = TfidfVec.transform([sentence])
-        distance = cosine_similarity(query_vector, sentence_vector)[0][0]
-        distances.append((distance, sentence))
+    for centroid in chunk_centroids:
+        distance = cosine_similarity(query_vector, centroid)[0][0]
+        distances.append((distance, centroid))
     distances.sort(key=lambda x: x[0], reverse=True)
-    return [sentence for _, sentence in distances[:3]]  # Return top 3 similar sentences
+    top_chunk_indices = [index for index, _ in distances[:3]]
+    similar_sentences = [chunks[index] for index in top_chunk_indices]
+    return similar_sentences
 
 def response(query_text):
     query_text = preprocess_text(query_text)
-    results = []
-    for cluster_id, cluster in clusters.items():
-        similar_sentences = find_similar_sentences(query_text, cluster)
-        results.extend(similar_sentences)
-    return results
+    similar_sentences = find_similar_sentences(query_text)
+    return similar_sentences
 
 query_text = ""
 while query_text.lower() != "bye":
