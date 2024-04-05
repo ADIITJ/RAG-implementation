@@ -17,11 +17,15 @@ def preprocess_text(text):
     text = text.lower()
     return text
 
-for filename in uploaded:
-    print(f"Uploaded file: {filename}")
-    with open(filename, 'r', errors='ignore') as file:
-        raw = file.read().lower()
-        sentences += sent_tokenize(raw)
+def break_into_chunks(sentences):
+    chunk_size = 5
+    chunks = []
+    for i in range(len(sentences)):
+        chunk_start = max(0, i - 2)
+        chunk_end = min(len(sentences), i + 3)
+        chunk = ' '.join(sentences[chunk_start:chunk_end])
+        chunks.append(chunk)
+    return chunks
 
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(sentences)
