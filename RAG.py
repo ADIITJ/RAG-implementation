@@ -39,7 +39,7 @@ sentences = [preprocess_text(sentence) for sentence in sentences]
 chunks = break_into_chunks(sentences)
 
 TfidfVec = TfidfVectorizer(stop_words='english')
-tfidf_matrix = TfidfVec.fit_transform(sentences)
+tfidf_matrix = TfidfVec.fit_transform(chunks)
 
 # Cluster sentences
 num_clusters = len(sentences) // 5  # Adjust as needed
