@@ -14,7 +14,7 @@ nltk.download('omw-1.4')
 uploaded = ['data.txt']
 
 def preprocess_text(text):
-    text = text.lower()
+    text = str(text).lower()
     return text
 
 def break_into_chunks(sentences):
@@ -23,8 +23,9 @@ def break_into_chunks(sentences):
     for i in range(len(sentences)):
         chunk_start = max(0, i - 2)
         chunk_end = min(len(sentences), i + 3)
-        chunk = ' '.join(sentences[chunk_start:chunk_end])
-        chunks.append(chunk)
+        for sen in sentences[chunk_start:chunk_end]:
+            chunks.append(sen)
+        
     return chunks
     
 sentences = []
@@ -42,7 +43,7 @@ print(len(sentences))
 TfidfVec = TfidfVectorizer(stop_words='english')
 tfidf_matrix = TfidfVec.fit_transform(chunks)
 
-num_clusters = len(chunks) // 5  # Adjust as needed
+num_clusters = len(chunks)  # Adjust as needed
 kmeans = KMeans(n_clusters=num_clusters)
 kmeans.fit(tfidf_matrix)
 cluster_labels = kmeans.labels_
@@ -86,6 +87,6 @@ while query_text.lower() != "bye":
     query_text = input("You: ")
     similar_sentences = response(query_text)
     print("Bot: Top similar sentences found:")
-    #for sentence in similar_sentences:
-    #    print("-", sentence)
+    for sentence in similar_sentences:
+        print("-", sentence)
 
