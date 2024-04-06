@@ -1,7 +1,6 @@
 ## RAG (Retrieval-Augmented Generation) Prompt Generator
 
-Welcome to the RAG Prompt Generator! This Python program assists in generating RAG (Retrieval-Augmented Generation) prompts, a crucial component in natural language processing tasks, particularly in question answering systems. By leveraging contextual information and user queries, RAG prompts enhance the performance and accuracy of such systems.
-
+Introducing my RAG Prompt Generator! This project is my very own implementation of RAG (Retrieval-Augmented Generation) prompts, a fundamental aspect of natural language processing systems, especially in the realm of question answering. With this tool, you can generate prompts that enhance the accuracy and effectiveness of such systems by incorporating contextual information and user queries. It's a powerful way to improve the performance of question answering models and make them more robust in handling real-world scenarios.
 ### Features
 
 - **Text Processing:** Tokenizes text into sentences and words using NLTK (Natural Language Toolkit).
