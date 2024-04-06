@@ -1,11 +1,20 @@
-## RAG Implementation
+## RAG (Retrieval-Augmented Generation) Prompt Generator
 
-This repository contains an implementation of the Retrieval-Augmented Generation (RAG) model, which is used for question answering and generation tasks. The RAG model combines the power of retrieval-based and generation-based approaches to provide accurate and contextually relevant responses.
+Welcome to the RAG Prompt Generator! This Python program assists in generating RAG (Retrieval-Augmented Generation) prompts, a crucial component in natural language processing tasks, particularly in question answering systems. By leveraging contextual information and user queries, RAG prompts enhance the performance and accuracy of such systems.
+
+### Features
+
+- **Text Processing:** Tokenizes text into sentences and words using NLTK (Natural Language Toolkit).
+- **Lemmatization:** Utilizes NLTK's WordNet Lemmatizer for lemmatization and normalization of text, ensuring consistency and accuracy in word forms.
+- **TF-IDF Vectorization:** Employs TF-IDF (Term Frequency-Inverse Document Frequency) vectorization for feature extraction, capturing the importance of terms in a document corpus.
+- **Cosine Similarity:** Computes cosine similarity between query text and context chunks, enabling the identification of relevant context for user queries.
+- **RAG Prompt Generation:** Generates RAG prompts based on similar context chunks, facilitating effective question answering.
 
 ### Requirements
+
 - Python 3.x
-- NLTK
-- scikit-learn
+- NLTK (Natural Language Toolkit)
+- Scikit-learn
 - NumPy
 
 ### Installation
@@ -13,40 +22,34 @@ This repository contains an implementation of the Retrieval-Augmented Generation
 1. Clone the repository:
    ```bash
    git clone https://github.com/ADIITJ/RAG-implementation.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd RAG-implementation
-   ```
-3. Install the required dependencies:
+
+
+2. Install the required dependencies:
    ```bash
    pip install -r requirements.txt
-   ```
-4. Download NLTK resources:
-   ```bash
-   python -m nltk.downloader punkt
    ```
 
 ### Usage
 
-1. Ensure that your data is stored in a file named `data.txt`.
-2. Run the main script:
-   ```bash
-   python RAG.py
-   ```
-3. Enter your query when prompted by the program.
-4. The program will display the RAG prompt and the top contextually similar sentences.
+Before running the program, ensure that you have text files (.txt) containing the relevant data from which you want to generate answers. Follow these steps to use the program:
+Run the program with the following command:
 
-### How It Works
+```
+python program.py <uploaded_files> <sentences_per_chunk> <num_chunks>
+```
 
-- **Preprocessing**: The text data is preprocessed to convert it to lowercase, remove special characters and extra whitespaces.
-- **Chunking**: The text is divided into chunks of sentences, with each chunk containing a base sentence and its similar sentences.
-- **Similarity Calculation**: The TF-IDF vectorizer is used to calculate the similarity between sentences. Cosine similarity is used as the similarity metric.
-- **Centroid Calculation**: Centroid vectors are calculated for each chunk using the TF-IDF matrix.
-- **Response Generation**: Given a query, the program finds similar sentences and presents them as a context for answering the query.
+- `<uploaded_files>`: Comma-separated string of filenames containing text data.
+- `<sentences_per_chunk>`: Number of sentences to include in each context chunk.
+- `<num_chunks>`: Number of context chunks to consider for generating RAG prompts.
 
+### Example
 
-### Acknowledgments
+```
+python program.py data.txt,more_data.txt 5 3
+```
 
-- Inspired by the RAG model proposed by Lewis et al. (2020).
-- Thanks to the NLTK and scikit-learn communities for their invaluable contributions to natural language processing and machine learning.
+This command will process `data.txt` and `more_data.txt`, considering 5 sentences per chunk and 3 chunks for generating RAG prompts.
+
+### Contributing
+
+Contributions are welcome! Feel free to submit bug reports, feature requests, or pull requests on [GitHub](https://github.com/ADIITJ/RAG-implementation).
