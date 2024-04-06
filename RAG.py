@@ -9,24 +9,25 @@ tfidf_vectorizer = TfidfVectorizer(stop_words='english')
 import re
 chunk_centroids = []
 chunks = []
+
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-def break_into_chunks(sentences):
+def break_into_chunks(tfidf_vectorizer, sentences):
     chunks = []
     for i in range(len(sentences)):
         chunk_start = max(0, i - 3)
         chunk_end = min(len(sentences), i + 4)
         base_sentence = sentences[i]
-        similar_sentences = find_similar_sentences(base_sentence, sentences[chunk_start:chunk_end])
+        similar_sentences = find_similar_sentence(base_sentence, sentences[chunk_start:chunk_end], tfidf_vectorizer)
         chunks.append(similar_sentences)
-        i=i+4
+        i = i + 4
     return chunks
 
-def find_similar_sentences(base_sentence, candidate_sentences):
+def find_similar_sentence(base_sentence, candidate_sentences, tfidf_vectorizer):
     query_vector = tfidf_vectorizer.transform([base_sentence])
     distances = []
     for sentence in candidate_sentences:
@@ -37,7 +38,9 @@ def find_similar_sentences(base_sentence, candidate_sentences):
     similar_sentences = [sentence for _, sentence in distances[:2]]  # Return top 2 similar sentences
     return similar_sentences
 
-def  get_file_contents(uploaded):
+def get_file_contents(uploaded):
+    global chunks
+    global chunk_centroids
     sentences = []
     for filename in uploaded:
         print(f"Uploaded file: {filename}")
@@ -45,7 +48,7 @@ def  get_file_contents(uploaded):
             raw_text = file.read()
             sentences += sent_tokenize(raw_text)
     sentences = [preprocess_text(sentence) for sentence in sentences]
-    tfidf_vectorizer.fit_transform(sentences)
+    tfidf_matrix = tfidf_vectorizer.fit_transform(sentences)
 
     chunks = break_into_chunks(tfidf_vectorizer, sentences)
     print(len(chunks))
@@ -62,7 +65,7 @@ def find_similar_sentences(query_text):
         distance = cosine_similarity(query_vector, chunk_centroids[i].reshape(1, -1))[0][0]
         distances.append((distance, i))
     distances.sort(key=lambda x: x[0], reverse=True)
-    top_chunk_indices = [i for _,i in distances[:5]]  # Convert indices to integers
+    top_chunk_indices = [i for _, i in distances[:5]]  # Convert indices to integers
     similar_sentences = [chunks[index] for index in top_chunk_indices]
     return similar_sentences
 
@@ -87,6 +90,7 @@ def response(query_text):
     return rag_prompt
 
 uploaded = ['data.txt']
+get_file_contents(uploaded)
 
 query_text = ""
 while True:
