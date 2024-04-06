@@ -86,6 +86,11 @@ def convert_data_to_list(data):
             unique_strings.add(string)
     return list(unique_strings)
 
+def generate_rag_prompt(query_text, similar_sentences):
+    prompt = f"Answer the question: '{query_text}' based on the following context:\n"
+    for sentence in similar_sentences:
+        prompt += f"- {sentence}\n"
+    return prompt
 
 def response(query_text):
     query_text = preprocess_text(query_text)
