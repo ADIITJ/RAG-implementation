@@ -17,8 +17,6 @@ def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-
-
 def break_into_chunks(sentences):
     chunks = []
     for i in range(len(sentences)):
