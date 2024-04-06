@@ -12,15 +12,9 @@ uploaded = ['data.txt']
 import re
 
 def preprocess_text(text):
-    # Convert text to lowercase
     text = text.lower()
-    
-    # Remove special characters, including newline
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
-    
-    # Remove extra whitespaces
     text = re.sub(r'\s+', ' ', text).strip()
-    
     return text
 
 
@@ -96,7 +90,8 @@ def response(query_text):
     query_text = preprocess_text(query_text)
     similar_sentences = find_similar_sentences(query_text)
     similar_sentences = convert_data_to_list(similar_sentences)
-    return similar_sentences
+    rag_prompt = generate_rag_prompt(query_text, similar_sentences)
+    return rag_prompt
 
 query_text = ""
 while query_text.lower() != "bye":
