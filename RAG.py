@@ -4,7 +4,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-# Download NLTK resources
 nltk.download('punkt')
 
 uploaded = ['data.txt']
@@ -53,7 +52,6 @@ tfidf_matrix = tfidf_vectorizer.fit_transform(sentences)
 chunks = break_into_chunks(sentences)
 print(len(chunks))
 
-# Calculate centroid vectors for each chunk
 chunk_centroids = []
 for chunk in chunks:
     chunk_vector = tfidf_vectorizer.transform(chunk)
@@ -81,7 +79,7 @@ def convert_data_to_list(data):
 def generate_rag_prompt(query_text, similar_sentences):
     prompt = f"Answer the question: '{query_text}' based on the following context:\n"
     for sentence in similar_sentences:
-        prompt += f"- {sentence}\n"
+        prompt += f"{sentence}. "
     return prompt
 
 def response(query_text):
@@ -92,10 +90,10 @@ def response(query_text):
     return rag_prompt
 
 query_text = ""
-while query_text.lower() != "bye":
+while True:
     query_text = input("You: ")
-    similar_sentences = response(query_text)
+    if preprocess_text(query_text)=="bye":
+        break
+    prompt = response(query_text)
     print("Bot: RAG prompt-")
-    print(f'Answer the question: {query_text} based on context:')
-    for sentence in similar_sentences:
-        print(sentence)
+    print(prompt)
