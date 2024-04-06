@@ -5,11 +5,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 nltk.download('punkt')
-
-uploaded = ['data.txt']
-
+tfidf_vectorizer = TfidfVectorizer(stop_words='english')
 import re
-
+chunk_centroids = []
+chunks = []
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
@@ -38,25 +37,23 @@ def find_similar_sentences(base_sentence, candidate_sentences):
     similar_sentences = [sentence for _, sentence in distances[:2]]  # Return top 2 similar sentences
     return similar_sentences
 
-sentences = []
-for filename in uploaded:
-    print(f"Uploaded file: {filename}")
-    with open(filename, 'r', errors='ignore') as file:
-        raw_text = file.read()
-        sentences += sent_tokenize(raw_text)
-sentences = [preprocess_text(sentence) for sentence in sentences]
+def  get_file_contents(uploaded):
+    sentences = []
+    for filename in uploaded:
+        print(f"Uploaded file: {filename}")
+        with open(filename, 'r', errors='ignore') as file:
+            raw_text = file.read()
+            sentences += sent_tokenize(raw_text)
+    sentences = [preprocess_text(sentence) for sentence in sentences]
+    tfidf_vectorizer.fit_transform(sentences)
 
-tfidf_vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = tfidf_vectorizer.fit_transform(sentences)
+    chunks = break_into_chunks(tfidf_vectorizer, sentences)
+    print(len(chunks))
 
-chunks = break_into_chunks(sentences)
-print(len(chunks))
-
-chunk_centroids = []
-for chunk in chunks:
-    chunk_vector = tfidf_vectorizer.transform(chunk)
-    chunk_centroid = np.asarray(chunk_vector.mean(axis=0)).reshape(-1)
-    chunk_centroids.append(chunk_centroid)
+    for chunk in chunks:
+        chunk_vector = tfidf_vectorizer.transform(chunk)
+        chunk_centroid = np.asarray(chunk_vector.mean(axis=0)).reshape(-1)
+        chunk_centroids.append(chunk_centroid)
 
 def find_similar_sentences(query_text):
     query_vector = tfidf_vectorizer.transform([query_text])
@@ -88,6 +85,8 @@ def response(query_text):
     similar_sentences = convert_data_to_list(similar_sentences)
     rag_prompt = generate_rag_prompt(query_text, similar_sentences)
     return rag_prompt
+
+uploaded = ['data.txt']
 
 query_text = ""
 while True:
