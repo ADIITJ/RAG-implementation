@@ -1,21 +1,18 @@
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import sys
 import string
 import re
+from langchain.llm import LLM
+from langchain.embeddings import HuggingFaceEmbeddings
+import cosine_similarity
 nltk.download('punkt')
 nltk.download('wordnet')
-from nltk.stem import WordNetLemmatizer
-
-tfidf_vectorizer = TfidfVectorizer(stop_words='english')
-lemmatizer = WordNetLemmatizer()
 
 chunk_centroids = []
 chunks = []
-
+embeddings = HuggingFaceEmbeddings("bert-base-uncased")
 def preprocess_text(text):
     text = text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
@@ -23,25 +20,26 @@ def preprocess_text(text):
     return text
 
 def LemNormalize(text):
+    llm = LLM("llm-large")
     tokens = word_tokenize(text.lower().translate(dict((ord(punct), None) for punct in string.punctuation)))
-    return [lemmatizer.lemmatize(token) for token in tokens]
+    return [llm.lemmatize(token) for token in tokens]
 
-def break_into_chunks(tfidf_vectorizer, sentences, x):
+def break_into_chunks(embeddings, sentences, x):
     chunks = []
     for i in range(len(sentences)):
         chunk_start = max(0, i - x)
         chunk_end = min(len(sentences), i + x+1)
         base_sentence = sentences[i]
-        similar_sentences = find_similar_sentence(base_sentence, sentences[chunk_start:chunk_end], tfidf_vectorizer, x)
+        similar_sentences = find_similar_sentence(base_sentence, sentences[chunk_start:chunk_end], embeddings, x)
         chunks.append(similar_sentences)
         i = i + x//2
     return chunks
 
-def find_similar_sentence(base_sentence, candidate_sentences, tfidf_vectorizer, x):
-    query_vector = tfidf_vectorizer.transform([base_sentence])
+def find_similar_sentence(base_sentence, candidate_sentences, embeddings, x):
+    query_vector = embeddings.encode([base_sentence])
     distances = []
     for sentence in candidate_sentences:
-        sentence_vector = tfidf_vectorizer.transform([sentence])
+        sentence_vector = embeddings.encode([sentence])
         distance = cosine_similarity(query_vector, sentence_vector)[0][0]
         distances.append((distance, sentence))
     distances.sort(key=lambda x: x[0], reverse=True)
@@ -62,19 +60,16 @@ def get_file_contents(uploaded, x):
                 lemmatized_sentence = ' '.join(LemNormalize(raw_sentence))
                 lemmatized_sentences.append(lemmatized_sentence)
             sentences += lemmatized_sentences
-
-    tfidf_matrix = tfidf_vectorizer.fit_transform(sentences)
-
-    chunks = break_into_chunks(tfidf_vectorizer, sentences, x)
+    chunks = break_into_chunks(embeddings, sentences, x)
 
     for chunk in chunks:
-        chunk_vector = tfidf_vectorizer.transform(chunk)
+        chunk_vector = embeddings.encode(chunk)
         chunk_centroid = np.asarray(chunk_vector.mean(axis=0)).reshape(-1)
         chunk_centroids.append(chunk_centroid)
 
 
 def find_similar_sentences(query_text, num_chunks):
-    query_vector = tfidf_vectorizer.transform([query_text])
+    query_vector = embeddings.encode([query_text])
     distances = []
     for i in range(len(chunk_centroids)):
         distance = cosine_similarity(query_vector, chunk_centroids[i].reshape(1, -1))[0][0]
@@ -92,28 +87,33 @@ def convert_data_to_list(data):
     return list(unique_strings)
 
 def generate_rag_prompt(query_text, similar_sentences):
-    prompt = f"Answer the question: '{query_text}' based on the following context:\n"
-    for sentence in similar_sentences:
-        prompt += f"{sentence}. "
+    prompt = f"The given query is: '{query_text}'\n"
+    prompt += f"Here are {len(similar_sentences)} sentences similar to the query: \n"
+    for i, sentence in enumerate(similar_sentences):
+        prompt += f"{i+1}. {sentence}\n"
+    prompt += "\n\nWrite a summarizing paragraph using the above sentences. (Limit: 200 words)\n\n"
     return prompt
 
-def response(query_text, num_chunks):
-    query_text = preprocess_text(query_text)
-    similar_sentences = find_similar_sentences(query_text, num_chunks)
-    similar_sentences = convert_data_to_list(similar_sentences)
-    rag_prompt = generate_rag_prompt(query_text, similar_sentences)
-    return rag_prompt
+def summarize_sentences(prompt, max_length=200):
+    inputs = tokenizer.encode(prompt, return_tensors='pt', truncation=True, max_length=max_length)
+    outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, early_stopping=True)
+    summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return summary
 
-def main(uploaded, sentences_per_chunk, num_chunks):
-    get_file_contents(uploaded, sentences_per_chunk)
-    query_text = ""
-    while True:
-        query_text = input("You: ")
-        if preprocess_text(query_text) == "bye":
-            break
-        prompt = response(query_text,num_chunks)
-        print("Bot: RAG prompt-")
-        print(prompt)
+def main(uploaded_files, sentences_per_chunk, num_chunks):
+    x = sentences_per_chunk  # Number of sentences to consider in a chunk
+
+    get_file_contents(uploaded_files, x)
+
+    query_text = input("Enter your query: ")
+    similar_sentences = find_similar_sentences(query_text, num_chunks)
+
+    data = convert_data_to_list(similar_sentences)
+    prompt = generate_rag_prompt(query_text, data)
+    summary = summarize_sentences(prompt)
+
+    print("\n\nGenerated Summary:")
+    print(summary)
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
@@ -124,3 +124,4 @@ if __name__ == "__main__":
     sentences_per_chunk = int(sys.argv[2])
     num_chunks = int(sys.argv[3])
     main(uploaded_files, sentences_per_chunk, num_chunks)
+
