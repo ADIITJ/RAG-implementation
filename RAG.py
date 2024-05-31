@@ -14,6 +14,8 @@ from langchain.vectorstores import Chroma
 nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('stopwords')
+# Use a pipeline as a high-level helper
+
 chunk_centroids = []
 def lemmatize_text(text):
     lemmatizer = WordNetLemmatizer()
