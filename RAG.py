@@ -17,6 +17,7 @@ nltk.download('stopwords')
 # Use a pipeline as a high-level helper
 
 chunk_centroids = []
+chunks = []
 def lemmatize_text(text):
     lemmatizer = WordNetLemmatizer()
     stop_words = set(stopwords.words('english'))
@@ -44,14 +45,12 @@ def get_similar_sentences(sentence, sentences, embeddings, x):
     return similar_sentences
 
 def break_into_chunks(embeddings, sentences, x):
-    chunks = []
     for i in range(0, len(sentences), x):
         chunk_start = max(0, i - x)
         chunk_end = min(len(sentences), i + x+1)
         base_sentence = sentences[i]
         similar_sentences = get_similar_sentences(base_sentence, sentences[chunk_start:chunk_end], embeddings, x)
         chunks.append(similar_sentences)
-    return chunks
 
 def get_file_contents(uploaded, x):
     sentences = []
@@ -64,7 +63,7 @@ def get_file_contents(uploaded, x):
     
     # Use SentenceTransformer with a pre-trained model (e.g., all-MiniLM-L6-v2)
     embedder = SentenceTransformer('all-MiniLM-L6-v2')
-    chunks = break_into_chunks(embedder, sentences, x)
+    break_into_chunks(embedder, sentences, x)
     for chunk in chunks:
         # Generate embeddings for each sentence in the chunk
         chunk_embeddings = [embedder.encode(sentence) for sentence in chunk]
@@ -78,9 +77,14 @@ def get_file_contents(uploaded, x):
     return chunks
 
 def find_similar_sentences(query_text, vector_db, embeddings, num_chunks):
-    query_embedding = embeddings.embed_query(query_text)[0]
-    distances, indices = vector_db.search(query_embedding, k=num_chunks)
-    similar_sentences = [vector_db.get(index) for index in indices]
+    query_vector = embeddings.embed_query(query_text)[0]
+    distances = []
+    for i in range(len(chunk_centroids)):
+        distance = cosine_similarity(query_vector, chunk_centroids[i].reshape(1, -1))[0][0]
+        distances.append((distance, i))
+    distances.sort(key=lambda x: x[0], reverse=True)
+    top_chunk_indices = [i for _, i in distances[:num_chunks]]  # Convert indices to integers
+    similar_sentences = [chunks[index] for index in top_chunk_indices]
     return similar_sentences
 
 def convert_data_to_list(data):
