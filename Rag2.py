@@ -9,15 +9,23 @@ from nltk.corpus import stopwords
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
+# Download necessary NLTK data
 nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('stopwords')
 nltk.download('vader_lexicon')
-# Use a pipeline as a high-level helper
+
+# Load models and tokenizers
+model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-j-6B", offload_folder="offload")
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+tokenizer.pad_token = tokenizer.eos_token  # Set the padding token to the EOS token
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
+
 chunk_centroids = []
 chunks = []
+
 def lemmatize_text(text):
     lemmatizer = WordNetLemmatizer()
     stop_words = set(stopwords.words('english'))
@@ -37,31 +45,27 @@ def get_similar_sentences(main_sentence, sentences, num_sentences):
     prompt = f"Given the main sentence: '{main_sentence}'. Rank the following sentences by their relevance to the main sentence:\n\n"
     for i, sentence in enumerate(sentences):
         prompt += f"{i+1}. {sentence}\n"
-    prompt += "\nPlease respond with the top {} most relevant sentences along wihout any additional text.".format(num_sentences)
+    prompt += f"\nPlease respond with the top {num_sentences} most relevant sentences without any additional text."
 
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    input_ids = inputs.input_ids
+    attention_mask = inputs.attention_mask
 
-
-
-
-
-    response = "llm.ask(prompt)"
-
-
-
-
-
-
+    # Generate response
+    generate_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=200, pad_token_id=tokenizer.eos_token_id)
+    response = tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    
     similar_sentences = [sentence.strip() for sentence in response.split("\n")[1:num_sentences+1]]
     return similar_sentences
 
 def break_into_chunks(sentences, x):
     for i in range(len(sentences)):
         chunk_start = max(0, i - x)
-        chunk_end = min(len(sentences), i + x+1)
+        chunk_end = min(len(sentences), i + x + 1)
         base_sentence = sentences[i]
         similar_sentences = get_similar_sentences(base_sentence, sentences[chunk_start:chunk_end], x)
         chunks.append(similar_sentences)
-        i = i + x//2 + 1
+        i = i + x // 2 + 1
 
 def get_file_contents(uploaded, x):
     sentences = []
@@ -74,23 +78,18 @@ def get_file_contents(uploaded, x):
     
     break_into_chunks(sentences, x)
     for chunk in chunks:
-        # Generate embeddings for each sentence in the chunk
         chunk_embeddings = [vectorize_text(sentence) for sentence in chunk]
-        
-        # Calculate the centroid of the chunk by averaging the embeddings
         chunk_centroid = np.mean(chunk_embeddings, axis=0)
-        
-        # Append the centroid to the list of chunk centroids
         chunk_centroids.append(chunk_centroid)
 
-def find_similar_sentences(query_text, embeddings):
+def find_similar_sentences(query_text):
     query_vector = vectorize_text(query_text)
     distances = []
     for i in range(len(chunk_centroids)):
         distance = cosine_similarity(query_vector, chunk_centroids[i].reshape(1, -1))[0][0]
         distances.append((distance, i))
     distances.sort(key=lambda x: x[0], reverse=True)
-    top_chunk_indices = [i for _, i in distances[:5]]  # Convert indices to integers
+    top_chunk_indices = [i for _, i in distances[:5]]
     similar_sentences = [chunks[index] for index in top_chunk_indices]
     return similar_sentences
 
@@ -106,13 +105,12 @@ def generate_rag_prompt(query_text, similar_sentences):
     for i, sentence in enumerate(similar_sentences):
         prompt += f"{i+1}. {sentence}\n\n"
     prompt += f"Question: {query_text}\nAnswer the question based on the provided context only:"
-    print(prompt)
     return prompt
 
 def process_data(uploaded_files, x):
     get_file_contents(uploaded_files, x)
-    query = input('Your Question : ')
-    similar_sentences = find_similar_sentences(query, embedder)
+    query = input('Your Question: ')
+    similar_sentences = find_similar_sentences(query)
     final_sentences = convert_data_to_list(similar_sentences)
     ragged_prompt = generate_rag_prompt(query, final_sentences)
     return ragged_prompt
@@ -127,39 +125,27 @@ def process_ragged_prompt(ragged_prompt):
     return ragged_prompt
 
 def process_retriever(prompt):
-    result = embedder.predict(prompt)
+    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    input_ids = inputs.input_ids
+    attention_mask = inputs.attention_mask
+
+    generate_ids = model.generate(input_ids, attention_mask=attention_mask, max_length=500, pad_token_id=tokenizer.eos_token_id)
+    result = tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
     print(f"Retriever prediction: {result}")
     return result
 
-
-
-
-
-#def process_final_prompt(prompt):
-#    final_prompt = process_ragged_prompt(prompt)
-#   retriever_prediction = process_retriever(final_prompt)
-#   return retriever_prediction
-
-
-
-
-
+def process_final_prompt(prompt):
+    final_prompt = process_ragged_prompt(prompt)
+    retriever_prediction = process_retriever(final_prompt)
+    return retriever_prediction
 
 def run_process(uploaded_files, x):
     ragged_prompt = process_data(uploaded_files, x)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    #result = process_final_prompt(ragged_prompt)
-    #return result
+    result = process_final_prompt(ragged_prompt)
+    print(result)
+    return result
 
 if __name__ == "__main__":
     uploaded_files = sys.argv[1:]
-    num_sentences = int(input("number of sentences per chunk : "))
+    num_sentences = int(input("Number of sentences per chunk: "))
     run_process(uploaded_files, num_sentences)
